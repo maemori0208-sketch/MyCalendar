@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MyCalendar — カレンダー・タスク・議事録</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+</head>
+<body>
+  <!-- ===== ヘッダー ===== -->
+  <header class="app-header">
+    <div class="header-left">
+      <button class="icon-btn" id="menuToggle" title="メニュー">
+        <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+      </button>
+      <div class="brand">
+        <span class="brand-logo">📅</span>
+        <span class="brand-name">MyCalendar</span>
+      </div>
+      <button class="btn-today" id="todayBtn">今日</button>
+      <div class="nav-arrows" id="calNav">
+        <button class="icon-btn" id="prevBtn" title="前へ">
+          <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+        </button>
+        <button class="icon-btn" id="nextBtn" title="次へ">
+          <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M8.59 16.59 13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>
+        </button>
+      </div>
+      <h1 class="current-label" id="currentLabel">2026年 7月</h1>
+    </div>
+    <div class="header-right">
+      <div class="view-switch" id="viewSwitch">
+        <button data-view="month" class="active">月</button>
+        <button data-view="week">週</button>
+        <button data-view="day">日</button>
+      </div>
+      <input type="search" id="globalSearch" class="global-search" placeholder="検索…" />
+      <button class="icon-btn" id="themeToggle" title="テーマ切替（ライト / ダーク）">
+        <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.39 5.39 0 0 1-4.4 2.26 5.4 5.4 0 0 1-5.4-5.4c0-1.81.89-3.4 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="app-body">
+    <!-- ===== サイドバー ===== -->
+    <aside class="sidebar" id="sidebar">
+      <button class="create-btn" id="createBtn">
+        <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg>
+        <span>作成</span>
+      </button>
+
+      <!-- ミニカレンダー -->
+      <div class="mini-calendar" id="miniCalendar"></div>
+
+      <!-- ナビゲーション -->
+      <nav class="side-nav">
+        <button class="nav-item active" data-page="calendar">
+          <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 16H5V10h14zm0-12H5V6h14z"/></svg>
+          <span>カレンダー</span>
+        </button>
+        <button class="nav-item" data-page="tasks">
+          <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="m22 5.18-10.6 10.6-4.24-4.24 1.41-1.41 2.83 2.83 9.19-9.19zM19.79 10.22A8 8 0 1 1 13.4 4.44l1.52-1.52A10 10 0 1 0 22 12z"/></svg>
+          <span>タスク</span>
+          <span class="badge" id="taskBadge">0</span>
+        </button>
+        <button class="nav-item" data-page="notes">
+          <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zm2 16H8v-2h8zm0-4H8v-2h8zm-3-5V3.5L18.5 9z"/></svg>
+          <span>議事録</span>
+        </button>
+      </nav>
+
+      <!-- カレンダーの表示切替 -->
+      <div class="side-section">
+        <div class="side-section-title">表示</div>
+        <label class="check-row"><input type="checkbox" id="showTasksOnCal" checked /> <span class="dot dot-task"></span>タスクの期限</label>
+        <label class="check-row"><input type="checkbox" id="showNotesOnCal" checked /> <span class="dot dot-note"></span>議事録</label>
+      </div>
+    </aside>
+
+    <!-- ===== メインエリア ===== -->
+    <main class="main" id="main">
+      <!-- カレンダーページ -->
+      <section class="page" id="page-calendar">
+        <div id="calendarView"></div>
+      </section>
+
+      <!-- タスクページ -->
+      <section class="page hidden" id="page-tasks">
+        <div class="page-head">
+          <h2>タスク</h2>
+          <div class="task-filters" id="taskFilters">
+            <button data-filter="all" class="active">すべて</button>
+            <button data-filter="active">未完了</button>
+            <button data-filter="done">完了</button>
+            <button data-filter="today">今日</button>
+          </div>
+        </div>
+        <div class="task-add">
+          <input type="text" id="quickTaskInput" placeholder="新しいタスクを入力して Enter…" />
+          <input type="date" id="quickTaskDate" />
+          <select id="quickTaskPriority">
+            <option value="low">低</option>
+            <option value="medium" selected>中</option>
+            <option value="high">高</option>
+          </select>
+          <button id="quickTaskAdd">追加</button>
+        </div>
+        <ul class="task-list" id="taskList"></ul>
+      </section>
+
+      <!-- 議事録ページ -->
+      <section class="page hidden" id="page-notes">
+        <div class="notes-layout">
+          <div class="notes-sidebar">
+            <div class="page-head">
+              <h2>議事録</h2>
+              <button class="btn-primary-sm" id="newNoteBtn">+ 新規</button>
+            </div>
+            <input type="search" id="noteSearch" class="note-search" placeholder="議事録を検索…" />
+            <ul class="note-list" id="noteList"></ul>
+          </div>
+          <div class="note-editor" id="noteEditor">
+            <div class="note-empty" id="noteEmpty">
+              <p>📝 議事録を選択するか、「+ 新規」で作成してください。</p>
+            </div>
+            <div class="note-form hidden" id="noteForm">
+              <input type="text" id="noteTitle" class="note-title-input" placeholder="会議名（例：週次定例）" />
+              <div class="note-meta">
+                <label>日時 <input type="datetime-local" id="noteDatetime" /></label>
+                <label>出席者 <input type="text" id="noteAttendees" placeholder="山田, 佐藤, 鈴木" /></label>
+              </div>
+              <label class="note-field-label">アジェンダ</label>
+              <textarea id="noteAgenda" class="note-textarea" rows="3" placeholder="・議題1&#10;・議題2"></textarea>
+              <label class="note-field-label">議事内容 / メモ</label>
+              <textarea id="noteBody" class="note-textarea note-body" rows="10" placeholder="決定事項、議論の内容などを記入…"></textarea>
+              <label class="note-field-label">アクションアイテム（決定 → タスク化できます）</label>
+              <div id="actionItems" class="action-items"></div>
+              <div class="action-add">
+                <input type="text" id="actionInput" placeholder="対応事項を入力…" />
+                <input type="text" id="actionOwner" class="action-owner" placeholder="担当" />
+                <input type="date" id="actionDue" />
+                <button id="addActionBtn">追加</button>
+              </div>
+              <div class="note-actions">
+                <span class="note-saved" id="noteSaved"></span>
+                <button class="btn-danger" id="deleteNoteBtn">削除</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- ===== 予定モーダル ===== -->
+  <div class="modal-overlay hidden" id="eventModal">
+    <div class="modal">
+      <div class="modal-head">
+        <h3 id="eventModalTitle">予定を作成</h3>
+        <button class="icon-btn" id="closeEventModal">
+          <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <input type="text" id="evTitle" class="modal-title-input" placeholder="タイトルを追加" />
+        <div class="modal-row">
+          <label class="modal-inline"><input type="checkbox" id="evAllDay" /> 終日</label>
+        </div>
+        <div class="modal-row">
+          <input type="date" id="evDate" />
+          <input type="time" id="evStart" />
+          <span class="tilde">〜</span>
+          <input type="time" id="evEnd" />
+        </div>
+        <div class="modal-row">
+          <label class="modal-label">繰り返し</label>
+          <select id="evRepeat">
+            <option value="none">なし</option>
+            <option value="daily">毎日</option>
+            <option value="weekly">毎週</option>
+            <option value="monthly">毎月</option>
+            <option value="yearly">毎年</option>
+          </select>
+          <span class="modal-inline" id="evRepeatUntilRow" style="display:none">終了日 <input type="date" id="evRepeatUntil" /></span>
+        </div>
+        <div class="modal-row">
+          <label class="modal-label">色</label>
+          <div class="color-picker" id="colorPicker"></div>
+        </div>
+        <div class="modal-row">
+          <textarea id="evDesc" placeholder="説明・メモ" rows="3"></textarea>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn-danger" id="deleteEventBtn">削除</button>
+        <div class="foot-right">
+          <button class="btn-ghost" id="cancelEventBtn">キャンセル</button>
+          <button class="btn-primary" id="saveEventBtn">保存</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 繰り返し予定：適用範囲ダイアログ ===== -->
+  <div class="modal-overlay hidden" id="scopeModal">
+    <div class="modal modal-sm">
+      <div class="modal-head"><h3 id="scopeTitle">繰り返し予定</h3></div>
+      <div class="modal-body"><p id="scopeMsg">この操作の適用範囲を選択してください。</p></div>
+      <div class="modal-foot">
+        <div class="foot-right" style="width:100%; justify-content:flex-end;">
+          <button class="btn-ghost" id="scopeCancel">キャンセル</button>
+          <button class="btn-ghost" id="scopeThis">この予定のみ</button>
+          <button class="btn-primary" id="scopeAll">すべての予定</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- モバイル用サイドバー背景 -->
+  <div class="backdrop hidden" id="backdrop"></div>
+
+  <!-- 作成メニュー -->
+  <div class="create-menu hidden" id="createMenu">
+    <button data-create="event">📅 予定</button>
+    <button data-create="task">✓ タスク</button>
+    <button data-create="note">📝 議事録</button>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="js/store.js"></script>
+  <script src="js/calendar.js"></script>
+  <script src="js/tasks.js"></script>
+  <script src="js/notes.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
