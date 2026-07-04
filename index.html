@@ -2,10 +2,20 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>MyCalendar — カレンダー・タスク・議事録</title>
   <link rel="stylesheet" href="styles.css" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
+
+  <!-- PWA / iOS（ホーム画面に追加でアプリのように使えます） -->
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#1a73e8" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#1f1f21" media="(prefers-color-scheme: dark)" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="MyCalendar" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <link rel="icon" type="image/png" href="icons/icon-192.png" />
 </head>
 <body>
   <!-- ===== ヘッダー ===== -->
@@ -75,6 +85,31 @@
         <div class="side-section-title">表示</div>
         <label class="check-row"><input type="checkbox" id="showTasksOnCal" checked /> <span class="dot dot-task"></span>タスクの期限</label>
         <label class="check-row"><input type="checkbox" id="showNotesOnCal" checked /> <span class="dot dot-note"></span>議事録</label>
+        <label class="check-row" id="showGCalRow" style="display:none"><input type="checkbox" id="showGCalOnCal" checked /> <span class="dot dot-gcal"></span>Googleカレンダー</label>
+      </div>
+
+      <!-- データ（同期・バックアップ） -->
+      <div class="side-section">
+        <div class="side-section-title">データ（PC↔スマホ同期）</div>
+        <button class="side-link" id="exportBtn">
+          <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M5 20h14v-2H5zm7-16-5.5 5.5L8 11l3-3v9h2V8l3 3 1.5-1.5z" transform="rotate(180 12 12)"/></svg>
+          <span>エクスポート（書き出し）</span>
+        </button>
+        <button class="side-link" id="importBtn">
+          <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M5 20h14v-2H5zm7-16-5.5 5.5L8 11l3-3v9h2V8l3 3 1.5-1.5z"/></svg>
+          <span>インポート（取り込み）</span>
+        </button>
+        <input type="file" id="importFile" accept="application/json,.json" hidden />
+        <button class="side-link" id="syncBtn">
+          <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M12 4V1L8 5l4 4V6a6 6 0 0 1 6 6c0 .94-.22 1.82-.6 2.61l1.47 1.47A7.93 7.93 0 0 0 20 12a8 8 0 0 0-8-8zm0 14a6 6 0 0 1-6-6c0-.94.22-1.82.6-2.61L5.13 7.92A7.93 7.93 0 0 0 4 12a8 8 0 0 0 8 8v3l4-4-4-4z"/></svg>
+          <span>自動同期（クラウド）</span>
+          <span class="sync-dot" id="syncDot"></span>
+        </button>
+        <button class="side-link" id="gcalBtn">
+          <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 16H5V10h14zm0-12H5V6h14z"/></svg>
+          <span>Googleカレンダー取り込み</span>
+          <span class="sync-dot" id="gcalDot"></span>
+        </button>
       </div>
     </aside>
 
@@ -182,6 +217,7 @@
             <option value="monthly">毎月</option>
             <option value="yearly">毎年</option>
           </select>
+          <select id="evMonthlyMode" style="display:none"></select>
           <span class="modal-inline" id="evRepeatUntilRow" style="display:none">終了日 <input type="date" id="evRepeatUntil" /></span>
         </div>
         <div class="modal-row">
@@ -217,6 +253,162 @@
     </div>
   </div>
 
+  <!-- ===== 自動同期の設定 ===== -->
+  <div class="modal-overlay hidden" id="syncModal">
+    <div class="modal">
+      <div class="modal-head">
+        <h3>自動同期（クラウド）</h3>
+        <button class="icon-btn" id="closeSyncModal">
+          <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <label class="sync-field">同期方法
+          <select id="syncMethodSel">
+            <option value="drive">Google ドライブ（推奨）</option>
+            <option value="google">Google ログイン（Firebase）</option>
+            <option value="code">同期コード</option>
+          </select>
+        </label>
+
+        <!-- 方式1：Google ドライブ -->
+        <div id="syncDrive">
+          <p class="sync-desc">Googleアカウントでログインし、データを<b>あなたのGoogleドライブ</b>（アプリ専用の隠しフォルダ）に保存して自動同期します。Firebase不要・データベース構築も不要。データはあなたのDrive内にあり、他アプリからは見えません。<br>初回のみ、GoogleのOAuthクライアントID（無料）が必要です。</p>
+          <div id="driveAccount" class="google-account hidden">
+            <span class="ga-badge">✓ 接続中</span>
+            <span id="driveEmail" class="ga-email"></span>
+            <button class="btn-ghost" id="driveSignOutBtn">切断</button>
+          </div>
+          <div id="driveSetup">
+            <label class="sync-field">OAuth クライアントID
+              <input type="text" id="driveClientId" placeholder="xxxxxxxx.apps.googleusercontent.com" />
+            </label>
+            <button class="google-signin-btn" id="driveSignInBtn">
+              <svg viewBox="0 0 24 24" width="18" height="18"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z"/><path fill="#FBBC05" d="M5.84 14.1a6.6 6.6 0 0 1 0-4.2V7.06H2.18a11 11 0 0 0 0 9.88z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06L5.84 9.9C6.71 7.31 9.14 5.38 12 5.38z"/></svg>
+              Googleでログイン
+            </button>
+          </div>
+          <details class="sync-help">
+            <summary>初期設定の手順（初回のみ・約5分・無料）</summary>
+            <ol>
+              <li><a href="https://console.cloud.google.com/" target="_blank" rel="noopener">Google Cloud Console</a> でプロジェクトを作成 →「APIとサービス → ライブラリ」で <b>Google Drive API</b> を有効化</li>
+              <li>「OAuth 同意画面」を構成（User Type=外部）。「テストユーザー」に自分のGmailを追加（appdataのみのため公開審査は不要）</li>
+              <li>「認証情報 → 認証情報を作成 → OAuth クライアントID → ウェブアプリケーション」を作成。<b>承認済みのJavaScript生成元</b>に公開URL（例 <code>https://xxxx.netlify.app</code>）と <code>http://localhost</code> を追加</li>
+              <li>発行された<b>クライアントID</b>（<code>…apps.googleusercontent.com</code>）を上に貼り付けて「Googleでログイン」</li>
+              <li>もう一方の端末でも<b>同じクライアントID</b>でログインすれば同期されます</li>
+            </ol>
+          </details>
+        </div>
+
+        <!-- 方式2：Google ログイン（Firebase） -->
+        <div id="syncGoogle" class="hidden">
+          <p class="sync-desc">Googleアカウントでログインすると、<b>あなた専用の領域</b>に自動同期されます（本人のみ読み書き可）。各端末で「Googleでログイン」するだけです。<br>初回のみ、無料のFirebaseプロジェクトの設定貼り付けが必要です。</p>
+          <div id="googleAccount" class="google-account hidden">
+            <span class="ga-badge">✓ ログイン中</span>
+            <span id="googleEmail" class="ga-email"></span>
+            <button class="btn-ghost" id="googleSignOutBtn">ログアウト</button>
+          </div>
+          <div id="googleSetup">
+            <label class="sync-field">Firebase 設定（コンソールの構成をそのまま貼り付け）
+              <textarea id="syncFbConfig" rows="7" placeholder='const firebaseConfig = {
+  apiKey: "…",
+  authDomain: "xxxx.firebaseapp.com",
+  databaseURL: "https://xxxx-default-rtdb.firebaseio.com",
+  projectId: "xxxx",
+  appId: "…"
+};'></textarea>
+            </label>
+            <button class="google-signin-btn" id="googleSignInBtn">
+              <svg viewBox="0 0 24 24" width="18" height="18"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z"/><path fill="#FBBC05" d="M5.84 14.1a6.6 6.6 0 0 1 0-4.2V7.06H2.18a11 11 0 0 0 0 9.88z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06L5.84 9.9C6.71 7.31 9.14 5.38 12 5.38z"/></svg>
+              Googleでログイン
+            </button>
+          </div>
+          <details class="sync-help">
+            <summary>初期設定の手順（初回のみ・約5分・無料）</summary>
+            <ol>
+              <li><a href="https://console.firebase.google.com/" target="_blank" rel="noopener">Firebase コンソール</a>でプロジェクトを作成</li>
+              <li>「構築 → Realtime Database」→「データベースを作成」。ルールを次のように設定：<br>
+                <code>{ "rules": { "users": { "$u": { ".read": "auth!=null&amp;&amp;auth.uid==$u", ".write": "auth!=null&amp;&amp;auth.uid==$u" } } } }</code></li>
+              <li>「構築 → Authentication → ログイン方法」で <b>Google</b> を有効化</li>
+              <li>「Authentication → 設定 → 承認済みドメイン」に公開URL（例：<code>xxxx.netlify.app</code>）を追加</li>
+              <li>「プロジェクトの設定 → マイアプリ（ウェブ）」の <b>構成（firebaseConfig）</b>をコピーして上の欄に貼り付け</li>
+              <li>「Googleでログイン」。もう一方の端末でも<b>同じ設定を貼り付けてログイン</b>すれば同期されます</li>
+            </ol>
+          </details>
+        </div>
+
+        <!-- 方式2：同期コード -->
+        <div id="syncCodeMethod" class="hidden">
+          <p class="sync-desc">ログイン不要。<b>両端末で同じ「データベースURL」と「同期コード」</b>を設定します。同期コードを知る人はデータにアクセスできるため、長めの合言葉にしてください。</p>
+          <label class="sync-field">データベースURL
+            <input type="url" id="syncUrl" placeholder="https://xxxx-default-rtdb.firebaseio.com" />
+          </label>
+          <label class="sync-field">同期コード（合言葉・両端末で同じ値）
+            <input type="text" id="syncCode" placeholder="例：kazoku-cal-8f3a9c2b" />
+          </label>
+          <button class="btn-primary" id="syncEnableBtn" style="width:100%">この方式で有効にする</button>
+        </div>
+
+        <div class="sync-status" id="syncStatus">未接続</div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn-danger" id="syncDisableBtn">同期を停止</button>
+        <div class="foot-right">
+          <button class="btn-ghost" id="syncCancelBtn">閉じる</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Googleカレンダー取り込み ===== -->
+  <div class="modal-overlay hidden" id="gcalModal">
+    <div class="modal">
+      <div class="modal-head">
+        <h3>Googleカレンダー取り込み</h3>
+        <button class="icon-btn" id="closeGcalModal">
+          <svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p class="sync-desc">Googleカレンダーの予定を<b>このアプリに表示</b>します（<b>読み取り専用</b>）。あなたのGoogleカレンダーには一切書き込みません。予定は「G」印付きで表示され、タップするとGoogleカレンダーで開きます。</p>
+        <div id="gcalAccount" class="google-account hidden">
+          <span class="ga-badge">✓ 接続中</span>
+          <span id="gcalEmailLabel" class="ga-email">Googleカレンダー</span>
+          <button class="btn-ghost" id="gcalDisconnectBtn">切断</button>
+        </div>
+        <div id="gcalSetup">
+          <label class="sync-field">OAuth クライアントID
+            <input type="text" id="gcalClientId" placeholder="xxxxxxxx.apps.googleusercontent.com" />
+          </label>
+          <button class="google-signin-btn" id="gcalConnectBtn">
+            <svg viewBox="0 0 24 24" width="18" height="18"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z"/><path fill="#FBBC05" d="M5.84 14.1a6.6 6.6 0 0 1 0-4.2V7.06H2.18a11 11 0 0 0 0 9.88z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06L5.84 9.9C6.71 7.31 9.14 5.38 12 5.38z"/></svg>
+            Googleでログイン
+          </button>
+        </div>
+        <label class="sync-field" id="gcalCalendarRow" style="display:none">表示するカレンダー
+          <select id="gcalCalendarSel"></select>
+        </label>
+        <button class="btn-ghost" id="gcalRefreshBtn" style="display:none; align-self:flex-start;">↻ 今すぐ更新</button>
+        <div class="sync-status" id="gcalStatus">未接続</div>
+        <details class="sync-help">
+          <summary>初期設定の手順（初回のみ・約5分・無料）</summary>
+          <ol>
+            <li><a href="https://console.cloud.google.com/" target="_blank" rel="noopener">Google Cloud Console</a> でプロジェクトを作成 →「APIとサービス → ライブラリ」で <b>Google Calendar API</b> を有効化</li>
+            <li>「OAuth 同意画面」を構成（User Type=外部）。「テストユーザー」に自分のGmailを追加</li>
+            <li>「認証情報 → OAuth クライアントID → ウェブアプリケーション」を作成。<b>承認済みのJavaScript生成元</b>に公開URL（例 <code>https://xxxx.netlify.app</code>）と <code>http://localhost</code> を追加</li>
+            <li>発行された<b>クライアントID</b>を上に貼り付けて「Googleでログイン」</li>
+          </ol>
+          <p class="sync-note">※ Googleドライブ同期と同じOAuthクライアントIDを使えます（Calendar APIの有効化は別途必要）。</p>
+        </details>
+      </div>
+      <div class="modal-foot">
+        <div class="foot-right" style="width:100%; justify-content:flex-end;">
+          <button class="btn-ghost" id="gcalCancelBtn">閉じる</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- モバイル用サイドバー背景 -->
   <div class="backdrop hidden" id="backdrop"></div>
 
@@ -233,6 +425,8 @@
   <script src="js/calendar.js"></script>
   <script src="js/tasks.js"></script>
   <script src="js/notes.js"></script>
+  <script src="js/sync.js"></script>
+  <script src="js/gcal.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

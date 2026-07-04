@@ -45,6 +45,10 @@ input:not([type=checkbox]):not([type=radio]), textarea, select {
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; }
+/* iOS のツールバー伸縮に追従する動的ビューポート高さ */
+@supports (height: 100dvh) {
+  html, body { height: 100dvh; }
+}
 body {
   font-family: var(--font);
   color: var(--text);
@@ -52,6 +56,13 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  overscroll-behavior: none;              /* 引っ張って更新などを抑制 */
+  -webkit-tap-highlight-color: transparent; /* タップ時の青いフラッシュを消す */
+  -webkit-text-size-adjust: 100%;
+}
+/* スクロール領域は慣性スクロール有効化 */
+.main, .time-body, .note-list, .note-editor, .sidebar, .task-list {
+  -webkit-overflow-scrolling: touch;
 }
 button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
 input, textarea, select { font-family: inherit; font-size: 14px; }
@@ -140,11 +151,61 @@ input, textarea, select { font-family: inherit; font-size: 14px; }
 .dot { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
 .dot-task { background: var(--c-orange); }
 .dot-note { background: var(--c-purple); }
+.dot-gcal { background: #4285f4; }
+.side-link { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px; border-radius: 6px; font-size: 13px; color: var(--text); text-align: left; }
+.side-link:hover { background: var(--hover); }
+.side-link svg { color: var(--text-soft); flex-shrink: 0; }
+.sync-dot { margin-left: auto; width: 8px; height: 8px; border-radius: 50%; background: var(--text-soft); flex-shrink: 0; }
+.sync-dot[data-state="off"], .sync-dot[data-state="disabled"] { background: #bdc1c6; }
+.sync-dot[data-state="synced"] { background: var(--green); }
+.sync-dot[data-state="syncing"], .sync-dot[data-state="connecting"], .sync-dot[data-state="reconnecting"] { background: #f9ab00; }
+.sync-dot[data-state="error"] { background: var(--red); }
+
+/* 同期モーダル */
+.sync-tabs { display: flex; gap: 4px; background: var(--bg-alt); border-radius: 10px; padding: 4px; }
+.sync-tabs button { flex: 1; padding: 8px; border-radius: 8px; font-size: 13px; color: var(--text-soft); }
+.sync-tabs button.active { background: var(--bg); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.15); font-weight: 500; }
+#syncDrive, #syncGoogle, #syncCodeMethod { display: flex; flex-direction: column; gap: 12px; }
+.sync-field textarea { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; outline: none; resize: vertical; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 12px; line-height: 1.5; }
+.sync-field textarea:focus { border-color: var(--blue); }
+.google-signin-btn { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; padding: 11px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); font-size: 14px; font-weight: 500; }
+.google-signin-btn:hover { background: var(--bg-alt); box-shadow: var(--shadow); }
+.google-account { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--bg-alt); border-radius: 8px; flex-wrap: wrap; }
+.ga-badge { color: var(--green); font-size: 13px; font-weight: 500; }
+.ga-email { font-size: 13px; color: var(--text); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.google-account .btn-ghost { padding: 6px 10px; }
+.sync-desc { font-size: 13px; color: var(--text-soft); line-height: 1.6; }
+.sync-field { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--text-soft); }
+.sync-field input { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; outline: none; }
+.sync-field input:focus { border-color: var(--blue); }
+.sync-status { font-size: 13px; padding: 8px 12px; border-radius: 8px; background: var(--bg-alt); }
+.sync-status[data-state="synced"] { color: var(--green); }
+.sync-status[data-state="error"] { color: var(--red); }
+.sync-status[data-state="syncing"], .sync-status[data-state="connecting"], .sync-status[data-state="reconnecting"] { color: #b06000; }
+.sync-help { font-size: 12px; color: var(--text-soft); }
+.sync-help summary { cursor: pointer; padding: 6px 0; color: var(--blue); }
+.sync-help ol { margin: 8px 0 8px 18px; line-height: 1.8; }
+.sync-help code { background: var(--bg-alt); padding: 1px 5px; border-radius: 4px; font-size: 11px; word-break: break-all; }
+.sync-help a { color: var(--blue); }
+.sync-note { margin-top: 6px; color: var(--red); font-size: 11px; }
 
 /* ===== Main / pages ===== */
 .main { flex: 1; overflow: auto; position: relative; }
 .page { height: 100%; }
 .page.hidden { display: none; }
+#page-calendar, #calendarView { height: 100%; }
+
+/* 表示切り替え・期間移動のアニメーション */
+.main { overflow-x: hidden; }
+@keyframes calSlideNext { from { opacity: 0; transform: translateX(34px); } to { opacity: 1; transform: none; } }
+@keyframes calSlidePrev { from { opacity: 0; transform: translateX(-34px); } to { opacity: 1; transform: none; } }
+@keyframes calFade { from { opacity: 0; transform: scale(.985); } to { opacity: 1; transform: none; } }
+.cal-anim-next { animation: calSlideNext .22s cubic-bezier(.2,.7,.3,1); }
+.cal-anim-prev { animation: calSlidePrev .22s cubic-bezier(.2,.7,.3,1); }
+.cal-anim-fade { animation: calFade .2s ease; }
+@media (prefers-reduced-motion: reduce) {
+  .cal-anim-next, .cal-anim-prev, .cal-anim-fade { animation: none; }
+}
 .page-head { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px 12px; }
 .page-head h2 { font-size: 22px; font-weight: 500; }
 
@@ -173,6 +234,10 @@ input, textarea, select { font-family: inherit; font-size: 14px; }
 .chip.task-chip::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--c-orange); flex-shrink: 0; }
 .chip.task-chip.done { text-decoration: line-through; color: var(--text-soft); }
 .chip.note-chip { background: var(--c-purple); }
+.chip.gcal-chip { background: var(--bg-alt); color: var(--text); border-left: 3px solid #4285f4; }
+.chip.gcal-chip .gbadge { display: inline-flex; align-items: center; justify-content: center; width: 13px; height: 13px; border-radius: 3px; background: #4285f4; color: #fff; font-size: 9px; font-weight: 700; margin-right: 3px; flex-shrink: 0; }
+.tg-event.gcal { background: repeating-linear-gradient(45deg, #4285f4, #4285f4 10px, #4a90f0 10px, #4a90f0 20px); cursor: pointer; }
+.tg-event.gcal .gbadge { display: inline-block; background: rgba(255,255,255,.3); border-radius: 3px; padding: 0 3px; font-size: 9px; font-weight: 700; margin-right: 3px; }
 .more-link { font-size: 11px; color: var(--text-soft); padding: 1px 6px; }
 .more-link:hover { text-decoration: underline; }
 
@@ -334,7 +399,21 @@ body.dragging, body.dragging * { cursor: grabbing !important; user-select: none;
 
 /* ===== モバイル対応 ===== */
 @media (max-width: 768px) {
-  .app-header { height: 56px; padding: 0 4px; gap: 2px; }
+  /* iOS：フォーカス時の自動ズームを防ぐため入力は16px以上に */
+  input:not([type=checkbox]):not([type=radio]), textarea, select { font-size: 16px; }
+
+  /* ノッチ／ホームインジケータのセーフエリア対応 */
+  .app-header {
+    padding-top: env(safe-area-inset-top);
+    padding-left: calc(4px + env(safe-area-inset-left));
+    padding-right: calc(4px + env(safe-area-inset-right));
+    height: calc(56px + env(safe-area-inset-top));
+  }
+  .sidebar { padding-bottom: env(safe-area-inset-bottom); }
+  .main { padding-bottom: env(safe-area-inset-bottom); }
+  .backdrop { top: calc(56px + env(safe-area-inset-top)); }
+
+  .app-header { padding-bottom: 0; gap: 2px; }
   .brand { display: none; }
   .global-search { display: none; }
   .btn-today { padding: 6px 8px; font-size: 13px; white-space: nowrap; }
@@ -347,7 +426,7 @@ body.dragging, body.dragging * { cursor: grabbing !important; user-select: none;
 
   /* サイドバーはドロワー化 */
   .sidebar {
-    position: fixed; top: 56px; bottom: 0; left: 0; width: 264px; z-index: 60;
+    position: fixed; top: calc(56px + env(safe-area-inset-top)); bottom: 0; left: 0; width: 264px; z-index: 60;
     background: var(--bg); transform: translateX(-100%); transition: transform .25s ease;
     box-shadow: var(--shadow);
   }
