@@ -580,6 +580,36 @@
     document.getElementById("gcalSetup").classList.toggle("hidden", connected);
     document.getElementById("gcalCalendarRow").style.display = connected ? "" : "none";
     document.getElementById("gcalRefreshBtn").style.display = connected ? "" : "none";
+    document.getElementById("gcalTwoWayBox").style.display = connected ? "" : "none";
+    document.getElementById("gcalTwoWay").checked = window.GCalSync.isEnabled();
+  }
+  function renderGcalSyncStatus(status, detail) {
+    const el = document.getElementById("gcalSyncStatus");
+    if (!el) return;
+    let text = SYNC_LABELS[status] || status;
+    if (status === "synced" && typeof detail === "number") {
+      const d = new Date(detail);
+      text += `（${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}）`;
+    } else if (status === "error" && detail) { text += "：" + detail; }
+    el.textContent = "双方向：" + text;
+    el.dataset.state = status;
+  }
+  async function toggleTwoWay(checked) {
+    if (checked) {
+      renderGcalSyncStatus("connecting");
+      try {
+        await window.GCalSync.enable();
+        afterSyncApplied();
+        toast("双方向同期を開始しました（専用カレンダーを使用）");
+      } catch (e) {
+        document.getElementById("gcalTwoWay").checked = false;
+        renderGcalSyncStatus("error", (e && e.message) || "開始失敗");
+        alert("双方向同期の開始に失敗しました。\n\n詳細：" + ((e && e.message) || e));
+      }
+    } else {
+      window.GCalSync.disable();
+      toast("双方向同期を停止しました");
+    }
   }
   function populateGcalCalendars(list) {
     const sel = document.getElementById("gcalCalendarSel");
@@ -606,6 +636,8 @@
     renderGcalStatus("connecting");
     try {
       await window.GCal.connect(clientId, document.getElementById("gcalCalendarSel").value || undefined);
+      // 双方向同期が有効だった場合は、取得したトークンで再開
+      if (window.GCalSync.isEnabled()) { try { await window.GCalSync.enable(); afterSyncApplied(); } catch (e2) {} }
       if (state.page === "calendar") renderCalendar();
       toast("Googleカレンダーを取り込みました");
     } catch (e) {
@@ -710,6 +742,11 @@
     document.getElementById("gcalModal").addEventListener("click", (e) => { if (e.target.id === "gcalModal") closeGcalModal(); });
     document.getElementById("showGCalOnCal").addEventListener("change", () => { if (state.page === "calendar") renderCalendar(); });
     window.GCal.resume();
+
+    // 双方向同期（Phase 1）
+    window.GCalSync.onStatus(renderGcalSyncStatus);
+    document.getElementById("gcalTwoWay").addEventListener("change", (e) => toggleTwoWay(e.target.checked));
+    window.GCalSync.resume();
 
     // 表示切替
     document.getElementById("showTasksOnCal").addEventListener("change", () => { if (state.page === "calendar") renderCalendar(); });

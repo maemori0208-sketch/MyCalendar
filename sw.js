@@ -6,7 +6,7 @@
  *   （cache-first と違い、ファイル更新が確実に取り込まれます）
  * データ（予定・タスク・議事録）は localStorage 側に保存されます。
  * ======================================================= */
-const CACHE = "mycal-v7";
+const CACHE = "mycal-v8";
 const ASSETS = [
   "./",
   "./index.html",
@@ -17,6 +17,7 @@ const ASSETS = [
   "./js/notes.js",
   "./js/sync.js",
   "./js/gcal.js",
+  "./js/gcalsync.js",
   "./js/app.js",
   "./manifest.webmanifest",
   "./icons/icon-192.png",

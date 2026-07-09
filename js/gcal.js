@@ -11,7 +11,8 @@ window.GCal = (function () {
   const D = window.Store.Dates;
   const LS_CFG = "mycal.gcal";
   const LS_CACHE = "mycal.gcal.cache";
-  const SCOPE = "https://www.googleapis.com/auth/calendar.readonly";
+  // 読み取り（取り込み表示）に加え、双方向同期のためカレンダー作成・書き込みも行うため full scope
+  const SCOPE = "https://www.googleapis.com/auth/calendar";
 
   let cfg = load(LS_CFG) || {};             // { enabled, clientId, calendarId }
   let gEvents = load(LS_CACHE) || [];       // 正規化済みイベント（キャッシュ）
@@ -73,10 +74,15 @@ window.GCal = (function () {
     if (token && Date.now() < tokenExp - 60000) return token;
     return requestToken(false);
   }
-  async function apiFetch(url) {
+  function withAuth(opts, t) {
+    opts = opts || {};
+    opts.headers = Object.assign({}, opts.headers, { Authorization: "Bearer " + t });
+    return opts;
+  }
+  async function apiFetch(url, opts) {
     let t = await getToken();
-    let res = await fetch(url, { headers: { Authorization: "Bearer " + t } });
-    if (res.status === 401) { token = null; t = await getToken(); res = await fetch(url, { headers: { Authorization: "Bearer " + t } }); }
+    let res = await fetch(url, withAuth(opts, t));
+    if (res.status === 401) { token = null; t = await getToken(); res = await fetch(url, withAuth(opts, t)); }
     if (!res.ok) {
       let detail = "", reason = "";
       try {
@@ -217,5 +223,8 @@ window.GCal = (function () {
     onStatus: (cb) => { statusCb = cb; },
     onChange: (cb) => { changeCb = cb; },
     onCalendars: (cb) => { calsCb = cb; },
+    // 双方向同期エンジン（gcalsync.js）が認証済みfetchを再利用するために公開
+    api: (url, opts) => apiFetch(url, opts),
+    hasToken: () => !!(token && Date.now() < tokenExp),
   };
 })();

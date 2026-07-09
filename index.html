@@ -390,6 +390,14 @@
         </label>
         <button class="btn-ghost" id="gcalRefreshBtn" style="display:none; align-self:flex-start;">↻ 今すぐ更新</button>
         <div class="sync-status" id="gcalStatus">未接続</div>
+
+        <div id="gcalTwoWayBox" style="display:none; border-top:1px solid var(--border); padding-top:12px; margin-top:4px;">
+          <label class="check-row" style="align-items:flex-start;">
+            <input type="checkbox" id="gcalTwoWay" style="margin-top:3px;" />
+            <span>アプリの予定を<b>双方向同期</b>する<br><small style="color:var(--text-soft)">単発予定のみ。専用カレンダー「MyCalendar (アプリ)」を作成し、有効化以降に作成/編集した予定を同期します（繰り返しは対象外）。</small></span>
+          </label>
+          <div class="sync-status" id="gcalSyncStatus" style="margin-top:8px;">双方向：未接続</div>
+        </div>
         <details class="sync-help">
           <summary>初期設定の手順（初回のみ・約5分・無料）</summary>
           <ol>
@@ -427,6 +435,7 @@
   <script src="js/notes.js"></script>
   <script src="js/sync.js"></script>
   <script src="js/gcal.js"></script>
+  <script src="js/gcalsync.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
